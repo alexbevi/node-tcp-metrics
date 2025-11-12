@@ -40,7 +40,5 @@ const delay = (ms: number): Promise<void> => new Promise(res => setTimeout(res, 
 })();
 
 // Periodic report
-setInterval(() => {
-  const totals = getTotals();
-  console.log("[tcp] totals:", totals);
-}, 10_000);
+setInterval(() => console.log(getTotals()), 10_000);
+
