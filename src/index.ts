@@ -1,7 +1,7 @@
 // Import first so it patches net/tls before anything else uses them
 import "./tcp-metrics.js";
 
-import { on } from "./tcp-metrics.js";
+import { getTotals } from "./tcp-metrics.js";
 import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
@@ -9,6 +9,7 @@ if (!uri) {
   throw new Error("MONGODB_URI environment variable is not set");
 }
 const client = new MongoClient(uri);
+const delay = (ms: number): Promise<void> => new Promise(res => setTimeout(res, ms));
 
 (async () => {
   try {
@@ -28,6 +29,9 @@ const client = new MongoClient(uri);
     console.log("Read complete, doc size:", result?.data?.length);
 
     await collection.deleteOne({ _id: "large-doc" });
+
+    // keep the application alive so monitoring connections continue to be issued
+    await delay(60000);
   } catch (err) {
     console.error("MongoDB error:", err);
   } finally {
@@ -35,13 +39,8 @@ const client = new MongoClient(uri);
   }
 })();
 
-// Optional: listen for per-socket summaries
-on("socketSummary", (s) => {
-  console.log("[tcp] socketSummary:", s);
-});
-
-// // Periodic report
-// setInterval(() => {
-//   const totals = getTotals();
-//   console.log("[tcp] totals:", totals);
-// }, 10_000);
+// Periodic report
+setInterval(() => {
+  const totals = getTotals();
+  console.log("[tcp] totals:", totals);
+}, 10_000);

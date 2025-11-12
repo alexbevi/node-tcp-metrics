@@ -14,7 +14,9 @@ export interface SocketStats extends Totals {
 
 const metrics = {
   total: { rx: 0, tx: 0 } as Totals,
-  bySocket: new WeakMap<net.Socket, SocketStats>(),
+  // Keep per-socket stats so we can report totals per socket.
+  // Note: switching from WeakMap to Map holds strong refs to sockets.
+  bySocket: new Map<net.Socket, SocketStats>(),
   emitter: new EventEmitter(),
 };
 
@@ -124,14 +126,9 @@ function instrumentSocket(s: net.Socket): void {
 })();
 
 /** Public API */
-export function getTotals(): Totals {
-  return { ...metrics.total };
-}
-
-export function on(
-  event: "socketSummary",
-  listener: (s: SocketStats) => void
-): EventEmitter {
-  metrics.emitter.on(event, listener);
-  return metrics.emitter;
+export function getTotals(): { total: Totals; sockets: SocketStats[] } {
+  return {
+    total: { ...metrics.total },
+    sockets: [...metrics.bySocket.values()].map((s) => ({ ...s })),
+  };
 }
