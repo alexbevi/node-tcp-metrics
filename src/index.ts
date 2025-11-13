@@ -3,6 +3,7 @@ import "./tcp-metrics.js";
 
 import { getTotals } from "./tcp-metrics.js";
 import { MongoClient } from "mongodb";
+import Chance from "chance";
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {
@@ -16,22 +17,49 @@ const delay = (ms: number): Promise<void> => new Promise(res => setTimeout(res, 
     await client.connect();
     const db = client.db("testdb");
     const collection = db.collection<{ _id: string; data: string }>("testcollection");
+    const chance = new Chance(42); // Fixed seed for deterministic generation
 
-    // Generate 15MB payload
-    const payload = "x".repeat(15 * 1024 * 1024);
+    // Generate a complex document structure that's approximately 5MB
+    const itemCount = 5000; // Adjust to control size
+    const payload = JSON.stringify({
+      users: Array.from({ length: itemCount }, (_, i) => ({
+      id: i,
+      name: chance.name(),
+      email: chance.email(),
+      address: {
+        street: chance.address(),
+        city: chance.city(),
+        state: chance.state(),
+        zip: chance.zip(),
+        country: chance.country()
+      },
+      phone: chance.phone(),
+      company: chance.company(),
+      bio: chance.paragraph({ sentences: 5 }),
+      avatar: chance.url(),
+      tags: Array.from({ length: 10 }, () => chance.word()),
+      metadata: {
+        createdAt: chance.date().toISOString(),
+        lastLogin: chance.timestamp(),
+        preferences: {
+        theme: chance.pickone(['dark', 'light', 'auto']),
+        language: chance.locale(),
+        notifications: chance.bool()
+        }
+      }
+      }))
+    });
     const doc: { _id: string; data: string } = { _id: "large-doc", data: payload };
 
-    console.log("Writing 15MB document to MongoDB...");
     await collection.insertOne(doc);
-
-    console.log("Reading 15MB document from MongoDB...");
     const result = await collection.findOne({ _id: "large-doc" });
-    console.log("Read complete, doc size:", result?.data?.length);
+
+    console.log("Document insert and read complete, doc size:", result?.data?.length);
 
     await collection.deleteOne({ _id: "large-doc" });
 
     // keep the application alive so monitoring connections continue to be issued
-    await delay(60000);
+    // await delay(60000);
   } catch (err) {
     console.error("MongoDB error:", err);
   } finally {
@@ -40,5 +68,5 @@ const delay = (ms: number): Promise<void> => new Promise(res => setTimeout(res, 
 })();
 
 // Periodic report
-setInterval(() => console.log(getTotals()), 10_000);
+setInterval(() => console.log(getTotals()), 15_000);
 
