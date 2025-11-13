@@ -132,3 +132,11 @@ export function getTotals(): { total: Totals; sockets: SocketStats[] } {
     sockets: [...metrics.bySocket.values()].map((s) => ({ ...s })),
   };
 }
+
+export function on(
+  event: "socketSummary",
+  listener: (s: SocketStats) => void
+): EventEmitter {
+  metrics.emitter.on(event, listener);
+  return metrics.emitter;
+}

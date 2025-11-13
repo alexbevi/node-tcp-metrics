@@ -1,7 +1,7 @@
 // Import first so it patches net/tls before anything else uses them
 import "./tcp-metrics.js";
 
-import { getTotals } from "./tcp-metrics.js";
+import { on } from "./tcp-metrics.js";
 import { MongoClient } from "mongodb";
 import Chance from "chance";
 
@@ -21,7 +21,7 @@ const delay = (ms: number): Promise<void> => new Promise(res => setTimeout(res, 
 
     // Generate a complex document structure that's approximately 5MB
     const itemCount = 5000; // Adjust to control size
-    const payload = JSON.stringify({
+    const payload = {
       users: Array.from({ length: itemCount }, (_, i) => ({
       id: i,
       name: chance.name(),
@@ -48,13 +48,14 @@ const delay = (ms: number): Promise<void> => new Promise(res => setTimeout(res, 
         }
       }
       }))
-    });
-    const doc: { _id: string; data: string } = { _id: "large-doc", data: payload };
+    };
+    const doc: any = { _id: "large-doc", ...payload };
 
     await collection.insertOne(doc);
     const result = await collection.findOne({ _id: "large-doc" });
 
-    console.log("Document insert and read complete, doc size:", result?.data?.length);
+    const buf = Buffer.from(JSON.stringify(result));
+    console.log("Document insert and read complete, doc size (bytes):", buf.length);
 
     await collection.deleteOne({ _id: "large-doc" });
 
@@ -64,9 +65,10 @@ const delay = (ms: number): Promise<void> => new Promise(res => setTimeout(res, 
     console.error("MongoDB error:", err);
   } finally {
     await client.close();
-  }
+ }
 })();
 
 // Periodic report
-setInterval(() => console.log(getTotals()), 15_000);
+// setInterval(() => console.log(getTotals()), 5_000);
 
+on("socketSummary", (s) => console.log(s));
